@@ -18,6 +18,9 @@ using Process.NET;
 using Process.NET.Memory;
 using SysProcess = System.Diagnostics.Process;
 using keyTypes = Process.NET.Native.Types.Keys;
+using System.Runtime.InteropServices;
+using System.ComponentModel;
+using System.Threading;
 
 namespace GTA5_Casino_Helper
 {
@@ -27,17 +30,41 @@ namespace GTA5_Casino_Helper
     public partial class MainWindow : MetroWindow
     {
         // TODO Log
-        // TODO Implement Russian Roulette Mode
         // TODO Hotkey
         SysProcess _process { get; set; }
         ProcessSharp _sharp { get; set; }
         bool isHB_Running = false;
-        bool isBR_Running = false;
+        bool isRR_Running = false;
+        static readonly IntPtr[] RR_BettingAmout_Offsets =
+            {
+            (IntPtr)0x028AA178,
+            (IntPtr)0x28,
+            (IntPtr)0x48,
+            (IntPtr)0x120,
+            (IntPtr)0xA8,
+            (IntPtr)0x58,
+            (IntPtr)0x108,
+            (IntPtr)0x34
+        };
+        static readonly IntPtr[] RR_BettingNumber_Offsets =
+            {
+            (IntPtr)0x02E18A88,
+            (IntPtr)0x08,
+            (IntPtr)0x298,
+            (IntPtr)0x10,
+            (IntPtr)0x108,
+            (IntPtr)0x4D0
+        };
+        Thread RRWorkerThread;
         public MainWindow()
         {
             InitializeComponent();
-        }
 
+            RRWorkerThread = new Thread(RRWorker);
+            RRWorkerThread.IsBackground = true;
+            RRWorkerThread.Start();
+        }
+        #region Event
         private async void StatusBar_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             try
@@ -57,22 +84,125 @@ namespace GTA5_Casino_Helper
         }
         private async void btn_EarnMoneyByHB_Click(object sender, RoutedEventArgs e)
         {
-            if (isBR_Running)
+            try
             {
-                MessageBox.Show("You are running russian roulette now.");
-                return;
+                #region oooo
+                if (isRR_Running)
+                {
+                    MessageBox.Show("You are running russian roulette now.");
+                    return;
+                }
+
+
+                if (isHB_Running)
+                {
+                    await SetStatus("關閉自動下注");
+                    isHB_Running = false;
+                }
+                else
+                {
+                    await SetStatus("啟用自動下注");
+                    isHB_Running = true;
+                }
+                #endregion
+                await HR_ClickBet();
             }
-            await HR_ClickBet();
+            catch (Exception ex)
+            {
+                MessageBox.Show($"{ex.Message}");
+            }
+
         }
-        private void btn_EarnMoneyByRR_Click(object sender, RoutedEventArgs e)
+        private async void btn_EarnMoneyByRR_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Non-Support Now.");
-            if (isHB_Running)
+            try
             {
-                MessageBox.Show("You are running horse betting now.");
-                return;
+                #region oooo
+                if (isHB_Running)
+                {
+                    MessageBox.Show("You are running horse betting now.");
+                    return;
+                }
+
+
+                if (isRR_Running)
+                {
+                    await SetStatus("關閉自動下注");
+                    isRR_Running = false;
+                }
+                else
+                {
+                    await SetStatus("啟用自動下注");
+                    isRR_Running = true;
+                }
+                #endregion
+                await SetStatus("已鎖定俄羅斯輪盤出 0 , 下 0 金額為 50000。");
+                isRR_Running = true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"{ex.Message}");
             }
         }
+        #endregion
+        #region RR
+        private async void RRWorker()
+        {
+            while (true)
+            {
+                try
+                {
+                    if (!isRR_Running)
+                    {
+                        Thread.Sleep(TimeSpan.FromSeconds(5));
+                        continue;
+                    }
+                    SetBettingAmount();
+                    SetBettingNumber();
+                }
+                catch (Exception ex)
+                {
+                    await SetStatus($"RRWorker() => {ex.Message}");
+                    MessageBox.Show($"自動下注已停止，錯誤如下:\n{ex.Message}");
+                    isRR_Running = false;
+                }
+                finally
+                {
+                    Thread.Sleep(TimeSpan.FromMilliseconds(250));
+                }
+            }
+        }
+        private void SetBettingAmount()
+        {
+            try
+            {
+                IntPtr bettingAmountPtr = MemoryHelper.GetPtr(_process, RR_BettingAmout_Offsets, true);
+                byte[] bettingAmount = BitConverter.GetBytes(50000);
+
+                _sharp.Memory = new ExternalProcessMemory(_sharp.Handle);
+                _sharp.Memory.Write((IntPtr)bettingAmountPtr, bettingAmount);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"SetBettingAmount():{ex.Message}");
+            }
+        }
+        private void SetBettingNumber()
+        {
+            try
+            {
+                IntPtr bettingNumberPtr = MemoryHelper.GetPtr(_process, RR_BettingNumber_Offsets, true);
+                byte[] bettingNumber = BitConverter.GetBytes(0);
+
+                _sharp.Memory = new ExternalProcessMemory(_sharp.Handle);
+                _sharp.Memory.Write((IntPtr)bettingNumberPtr, bettingNumber);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"SetBettingNumber():{ex.Message}");
+            }
+        }
+        #endregion
         private async Task SetUIAsync(bool enable)
         {
             try
@@ -84,7 +214,7 @@ namespace GTA5_Casino_Helper
                         StatusBar.Text = "Status：Game Detected!";
                         StatusBar.IsEnabled = false;
                         btn_EarnMoneyByHB.IsEnabled = true;
-                        btn_EarnMoneyByBR.IsEnabled = true;
+                        btn_EarnMoneyByRR.IsEnabled = true;
                     }));
                 }
                 else
@@ -94,7 +224,7 @@ namespace GTA5_Casino_Helper
                         StatusBar.Text = "Status：Game Detected!";
                         StatusBar.IsEnabled = true;
                         btn_EarnMoneyByHB.IsEnabled = false;
-                        btn_EarnMoneyByBR.IsEnabled = false;
+                        btn_EarnMoneyByRR.IsEnabled = false;
                     }));
                 }
             }
@@ -120,16 +250,6 @@ namespace GTA5_Casino_Helper
         private async Task HR_ClickBet()
         {
             var window = _sharp.WindowFactory.MainWindow;
-            if (isHB_Running)
-            {
-                await SetStatus("關閉自動下注");
-                isHB_Running = false;
-            }
-            else
-            {
-                await SetStatus("啟用自動下注");
-                isHB_Running = true;
-            }
             while (isHB_Running)
             {
                 // TODO 寫成Action
@@ -168,10 +288,10 @@ namespace GTA5_Casino_Helper
                 window.Mouse.MoveTo(950, 1010);
                 SimulateHelper.LeftClick(950, 1010);
 
-                for(int i = 500; i > 0; i--)
+                for (int i = 500; i > 0; i--)
                 {
                     await Task.Delay(1);
-                    await SetStatus($"將在 {i/100} 秒後重新執行下注");
+                    await SetStatus($"將在 {i / 100} 秒後重新執行下注");
                     if (!isHB_Running)
                     {
                         await SetStatus($"結束。");
