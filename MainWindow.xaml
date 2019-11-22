@@ -4,7 +4,7 @@
                       xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
                       Title="GTA 5 Casino Helper"
                       Height="200"
-                      Width="525" ResizeMode="CanMinimize">
+                      Width="525" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="8*"/>
@@ -15,11 +15,11 @@
                 <ColumnDefinition/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
-            <Button Grid.Column="0" Margin="10,5" Content="Earn money By Horse Betting" IsEnabled="False"/>
-            <Button Grid.Column="1" Margin="10,5" Content="Earn Money By Russian Roulette" IsEnabled="False" />
+            <Button x:Name="btn_EarnMoneyByHB" Grid.Column="0" Margin="10,5" Content="Earn money By Horse Betting" IsEnabled="False" Click="btn_EarnMoneyByHB_Click"/>
+            <Button x:Name="btn_EarnMoneyByRR" Grid.Column="1" Margin="10,5" Content="Earn Money By Russian Roulette" IsEnabled="False" Click="btn_EarnMoneyByRR_Click" />
         </Grid>
         <Grid Grid.Row="1">
-            <TextBox Margin="10,0" IsEnabled="False" Text="Status：Wait for the game to open" VerticalAlignment="Center"/>
+            <TextBox x:Name="StatusBar" Margin="10,0" IsEnabled="True" Text="Status：Wait for the game to open (click it to check)" VerticalAlignment="Center" PreviewMouseDown="StatusBar_PreviewMouseDown" />
         </Grid>
 
     </Grid>
