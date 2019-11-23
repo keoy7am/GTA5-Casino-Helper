@@ -271,20 +271,20 @@ namespace GTA5_Casino_Helper
 
                 await SetStatus("設定金額");
                 window.Mouse.MoveTo(1530, 520);
-                await Task.Delay(1000);
-                for (var i = 10; i > 0; i--)
+                await Task.Delay(1500);
+                for (var i = 9; i > 0; i--)
                 {
                     await Task.Delay(50);
                     SimulateHelper.LeftClick(1530, 520);
                 }
 
                 await SetStatus("執行下注");
-                await Task.Delay(250);
+                await Task.Delay(300);
                 SimulateHelper.PressLeft(1530, 520);
 
                 await SetStatus("等待賽事完成");
-                await Task.Delay(250);
-                window.Mouse.MoveTo(1300, 800);
+                await Task.Delay(500);
+                SimulateHelper.MoveTo(1300, 800);
                 await Task.Delay(35000);
                 SimulateHelper.ReleaseLeft(1300, 800);
 
@@ -299,7 +299,7 @@ namespace GTA5_Casino_Helper
                     await SetStatus($"將在 {i / 100} 秒後重新執行下注");
                     if (!isHB_Running)
                     {
-                        await SetStatus($"結束。");
+                        await SetStatus($"已結束自動下注。");
                         return;
                     }
                 }

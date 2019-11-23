@@ -106,6 +106,11 @@ namespace GTA5_Casino_Helper
         {
             mouse_event(MOUSEEVENTF_LEFTUP, PositionX, PositionY, 0, 0);
         }
+        public static void MoveTo(int PositionX, int PositionY)
+        {
+            SetCursorPos(PositionX, PositionY);
+            System.Threading.Thread.Sleep(50);
+        }
         #endregion
     }
 }
