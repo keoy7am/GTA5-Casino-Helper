@@ -111,6 +111,11 @@ namespace GTA5_Casino_Helper
             SetCursorPos(PositionX, PositionY);
             System.Threading.Thread.Sleep(50);
         }
+        public static void Active(IntPtr handle)
+        {
+            SetForegroundWindow(handle);
+            System.Threading.Thread.Sleep(50);
+        }
         #endregion
     }
 }

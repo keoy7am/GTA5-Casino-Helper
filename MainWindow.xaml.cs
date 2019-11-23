@@ -17,7 +17,6 @@ using MahApps.Metro.Controls;
 using Process.NET;
 using Process.NET.Memory;
 using SysProcess = System.Diagnostics.Process;
-using keyTypes = Process.NET.Native.Types.Keys;
 using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.Threading;
@@ -75,7 +74,6 @@ namespace GTA5_Casino_Helper
                 if (_process != null)
                 {
                     _sharp = new ProcessSharp(_process, Process.NET.Memory.MemoryType.Remote);
-                    //ProcessSharp.Memory = new ExternalProcessMemory(sharp.Handle);
                     await SetUIAsync(true);
                 }
             }
@@ -259,18 +257,18 @@ namespace GTA5_Casino_Helper
             {
                 // TODO 寫成Action
                 await SetStatus("執行自動下注");
-                window.Activate();
-                window.Mouse.MoveTo(1450, 920);
+                window.Activate(); // it contains ShowWindow method
+                SimulateHelper.MoveTo(1450, 920);
                 await Task.Delay(1000);
                 SimulateHelper.LeftClick(1450, 920);
 
                 await SetStatus("選擇賽馬");
-                window.Mouse.MoveTo(330, 350);
+                SimulateHelper.MoveTo(330, 350);
                 await Task.Delay(1000);
                 SimulateHelper.LeftClick(330, 350);
 
                 await SetStatus("設定金額");
-                window.Mouse.MoveTo(1530, 520);
+                SimulateHelper.MoveTo(1530, 520);
                 await Task.Delay(1500);
                 for (var i = 9; i > 0; i--)
                 {
@@ -290,7 +288,7 @@ namespace GTA5_Casino_Helper
 
                 await SetStatus("結束賽事");
                 await Task.Delay(50);
-                window.Mouse.MoveTo(950, 1010);
+                SimulateHelper.MoveTo(950, 1010);
                 SimulateHelper.LeftClick(950, 1010);
 
                 for (int i = 500; i > 0; i--)
