@@ -49,10 +49,12 @@ namespace GTA5_Casino_Helper
         static readonly IntPtr[] RR_BettingNumber_Offsets =
             {
             (IntPtr)0x02E18A88,
-            (IntPtr)0x08,
-            (IntPtr)0x298,
-            (IntPtr)0x10,
-            (IntPtr)0x108,
+            (IntPtr)0x8,
+            (IntPtr)0x290,
+            (IntPtr)0x18,
+            (IntPtr)0x3E0,
+            (IntPtr)0xFC8,
+            (IntPtr)0x378,
             (IntPtr)0x4D0
         };
         Thread RRWorkerThread;
@@ -98,6 +100,7 @@ namespace GTA5_Casino_Helper
                 {
                     await SetStatus("關閉自動下注");
                     isHB_Running = false;
+                    await SetStatus("結束自動下注");
                 }
                 else
                 {
@@ -127,17 +130,17 @@ namespace GTA5_Casino_Helper
 
                 if (isRR_Running)
                 {
-                    await SetStatus("關閉自動下注");
+                    await SetStatus("已關閉俄羅斯輪盤修改,等待程式停止..");
                     isRR_Running = false;
+                    await Task.Delay(2000);
+                    await SetStatus("結束俄羅斯輪盤修改");
                 }
                 else
                 {
-                    await SetStatus("啟用自動下注");
+                    await SetStatus("已啟用俄羅斯輪盤修改,等待程式執行..");
                     isRR_Running = true;
                 }
                 #endregion
-                await SetStatus("已鎖定俄羅斯輪盤出 0 , 下 0 金額為 50000。");
-                isRR_Running = true;
             }
             catch (Exception ex)
             {
@@ -157,8 +160,10 @@ namespace GTA5_Casino_Helper
                         Thread.Sleep(TimeSpan.FromSeconds(5));
                         continue;
                     }
+
                     SetBettingAmount();
                     SetBettingNumber();
+                    await SetStatus("已鎖定俄羅斯輪盤出 0 , 下 0 金額為 50000。");
                 }
                 catch (Exception ex)
                 {
