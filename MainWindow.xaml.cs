@@ -47,13 +47,11 @@ namespace GTA5_Casino_Helper
         };
         static readonly IntPtr[] RR_BettingNumber_Offsets =
             {
-            (IntPtr)0x02E18A88,
-            (IntPtr)0x8,
-            (IntPtr)0x290,
-            (IntPtr)0x18,
-            (IntPtr)0x3E0,
-            (IntPtr)0xFC8,
-            (IntPtr)0x378,
+            (IntPtr)0x02889FF0,
+            (IntPtr)0x68,
+            (IntPtr)0x3D8,
+            (IntPtr)0x10,
+            (IntPtr)0x108,
             (IntPtr)0x4D0
         };
         Thread RRWorkerThread;
@@ -159,14 +157,12 @@ namespace GTA5_Casino_Helper
                         continue;
                     }
 
-                    SetBettingAmount();
-                    SetBettingNumber();
-                    await SetStatus("已鎖定俄羅斯輪盤出 0 , 下 0 金額為 50000。");
+                    if(await SetBettingAmountAsync() && await SetBettingNumberAsync())
+                        await SetStatus("已鎖定俄羅斯輪盤出 0 , 下 0 金額為 50000。");
                 }
                 catch (Exception ex)
                 {
                     await SetStatus($"RRWorker() => {ex.Message}");
-                    MessageBox.Show($"自動下注已停止，錯誤如下:\n{ex.Message}");
                     isRR_Running = false;
                 }
                 finally
@@ -175,7 +171,7 @@ namespace GTA5_Casino_Helper
                 }
             }
         }
-        private void SetBettingAmount()
+        private async Task<bool> SetBettingAmountAsync()
         {
             try
             {
@@ -187,23 +183,29 @@ namespace GTA5_Casino_Helper
             }
             catch (Exception ex)
             {
-                throw new Exception($"SetBettingAmount():{ex.Message}");
+                await SetStatus($"SetBettingAmount():{ex.Message}");
+                return false;
             }
+            return true;
         }
-        private void SetBettingNumber()
+        private async Task<bool> SetBettingNumberAsync()
         {
             try
             {
                 IntPtr bettingNumberPtr = MemoryHelper.GetPtr(_process, RR_BettingNumber_Offsets, true);
+                IntPtr bettingNumberPtr2 = IntPtr.Add(bettingNumberPtr,8);
                 byte[] bettingNumber = BitConverter.GetBytes(0);
 
                 _sharp.Memory = new ExternalProcessMemory(_sharp.Handle);
                 _sharp.Memory.Write((IntPtr)bettingNumberPtr, bettingNumber);
+                _sharp.Memory.Write((IntPtr)bettingNumberPtr2, bettingNumber);
             }
             catch (Exception ex)
             {
-                throw new Exception($"SetBettingNumber():{ex.Message}");
+                await SetStatus($"SetBettingNumber():{ex.Message}");
+                return false;
             }
+            return true;
         }
         #endregion
         private async Task SetUIAsync(bool enable)
