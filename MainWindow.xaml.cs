@@ -28,6 +28,8 @@ namespace GTA5_Casino_Helper
     /// </summary>
     public partial class MainWindow : MetroWindow
     {
+        int RR_Number = 0;
+        int RR_Amount = 1000;
         // TODO Log
         // TODO Hotkey
         SysProcess _process { get; set; }
@@ -55,6 +57,18 @@ namespace GTA5_Casino_Helper
             (IntPtr)0x4D0
         };
         Thread RRWorkerThread;
+        List<string> RR_NumberList = new List<string>();
+        List<int> RR_AmountList = new List<int>()
+        {
+            10,
+            50,
+            100,
+            500,
+            5000,
+            50000,
+            //60000
+        };
+        object RR_NumberLocaker = new object();
         public MainWindow()
         {
             InitializeComponent();
@@ -62,6 +76,18 @@ namespace GTA5_Casino_Helper
             RRWorkerThread = new Thread(RRWorker);
             RRWorkerThread.IsBackground = true;
             RRWorkerThread.Start();
+
+            for(int i = 0; i <= 36; i++)
+            {
+                RR_NumberList.Add(i.ToString());
+            }
+            RR_NumberList.Add("00");
+
+            cb_RR_Number.ItemsSource = RR_NumberList;
+            cb_RR_Number.SelectedIndex = 0;
+
+            cb_RR_Amount.ItemsSource = RR_AmountList;
+            cb_RR_Amount.SelectedIndex = 0;
         }
         #region Event
         private async void StatusBar_PreviewMouseDown(object sender, MouseButtonEventArgs e)
@@ -157,8 +183,8 @@ namespace GTA5_Casino_Helper
                         continue;
                     }
 
-                    if(await SetBettingAmountAsync() && await SetBettingNumberAsync())
-                        await SetStatus("已鎖定俄羅斯輪盤出 0 , 下 0 金額為 50000。");
+                    if (await SetBettingAmountAsync() && await SetBettingNumberAsync())
+                        await SetStatus($"已鎖定俄羅斯輪盤出 {RR_Number} , 下 {RR_Number} 金額為 {RR_Amount}。");
                 }
                 catch (Exception ex)
                 {
@@ -176,10 +202,16 @@ namespace GTA5_Casino_Helper
             try
             {
                 IntPtr bettingAmountPtr = MemoryHelper.GetPtr(_process, RR_BettingAmout_Offsets, true);
-                byte[] bettingAmount = BitConverter.GetBytes(50000);
+                IntPtr bettingAmountPtr2 = IntPtr.Add(bettingAmountPtr, 16);
+                IntPtr bettingAmountPtr3 = IntPtr.Add(bettingAmountPtr2, 16);
+                IntPtr bettingAmountPtr4 = IntPtr.Add(bettingAmountPtr3, 16);
+                byte[] bettingAmount = BitConverter.GetBytes(RR_Amount);
 
                 _sharp.Memory = new ExternalProcessMemory(_sharp.Handle);
                 _sharp.Memory.Write((IntPtr)bettingAmountPtr, bettingAmount);
+                _sharp.Memory.Write((IntPtr)bettingAmountPtr2, bettingAmount);
+                _sharp.Memory.Write((IntPtr)bettingAmountPtr3, bettingAmount);
+                _sharp.Memory.Write((IntPtr)bettingAmountPtr4, bettingAmount);
             }
             catch (Exception ex)
             {
@@ -194,7 +226,7 @@ namespace GTA5_Casino_Helper
             {
                 IntPtr bettingNumberPtr = MemoryHelper.GetPtr(_process, RR_BettingNumber_Offsets, true);
                 IntPtr bettingNumberPtr2 = IntPtr.Add(bettingNumberPtr,8);
-                byte[] bettingNumber = BitConverter.GetBytes(0);
+                byte[] bettingNumber = BitConverter.GetBytes(RR_Number);
 
                 _sharp.Memory = new ExternalProcessMemory(_sharp.Handle);
                 _sharp.Memory.Write((IntPtr)bettingNumberPtr, bettingNumber);
@@ -304,6 +336,16 @@ namespace GTA5_Casino_Helper
                     }
                 }
             }
+        }
+
+        private void cb_RR_Number_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RR_Number = cb_RR_Number.SelectedIndex;
+        }
+
+        private void cb_RR_Amount_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RR_Amount = RR_AmountList[cb_RR_Amount.SelectedIndex];
         }
     }
 }

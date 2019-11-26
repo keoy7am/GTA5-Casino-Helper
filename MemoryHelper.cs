@@ -52,7 +52,7 @@ namespace GTA5_Casino_Helper
             SysProcess handle = SysProcess.GetProcessesByName(pname)[0];
             return handle.MainModule.BaseAddress;
         }
-        static IntPtr ReadValueByPrt(SysProcess process, IntPtr[] offsets, bool debug = false, string module = null)
+        public static IntPtr ReadValueByPrt(SysProcess process, IntPtr[] offsets, bool debug = false, string module = null)
         {
 
             IntPtr tmpptr = (IntPtr)0;
