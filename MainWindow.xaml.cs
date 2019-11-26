@@ -22,6 +22,8 @@ using System.ComponentModel;
 using System.Threading;
 using NHotkey.Wpf;
 using NHotkey;
+using NLog;
+using System.IO;
 
 namespace GTA5_Casino_Helper
 {
@@ -30,9 +32,11 @@ namespace GTA5_Casino_Helper
     /// </summary>
     public partial class MainWindow : MetroWindow
     {
+        // TODO RRMode: Supports detection of Casinocoin changes. (To make sure a game has been lost)
+        // TODO MainWindow:
+        private static Logger logger = NLog.LogManager.GetCurrentClassLogger();
         int RR_Number = 0;
         int RR_Amount = 1000;
-        // TODO Log
         SysProcess _process { get; set; }
         ProcessSharp _sharp { get; set; }
         bool isHB_Running = false;
@@ -91,9 +95,13 @@ namespace GTA5_Casino_Helper
 
             cb_RR_Amount.ItemsSource = RR_AmountList;
             cb_RR_Amount.SelectedIndex = 0;
-            HotkeyManager.Current.AddOrReplace("F1", Key.F1, ModifierKeys.Control, DetectGameHotkeyEvent);
-            HotkeyManager.Current.AddOrReplace("F2", Key.F2, ModifierKeys.Control, SwitchHBModeHotkeyEvent);
-            HotkeyManager.Current.AddOrReplace("F3", Key.F3, ModifierKeys.Control, SwitchRRModeHotkeyEvent);
+
+            HotkeyManager.Current.AddOrReplace(Key.NumPad1.ToString(), Key.NumPad1, ModifierKeys.Control, DetectGameHotkeyEvent);
+            HotkeyManager.Current.AddOrReplace(Key.NumPad2.ToString(), Key.NumPad2, ModifierKeys.Control, SwitchHBModeHotkeyEvent);
+            HotkeyManager.Current.AddOrReplace(Key.NumPad3.ToString(), Key.NumPad3, ModifierKeys.Control, SwitchRRModeHotkeyEvent);
+            HotkeyManager.Current.AddOrReplace(Key.NumPad9.ToString(), Key.NumPad9, ModifierKeys.Control, CloseAppHotkeyEvent);
+
+            logger.Info("Program Start!");
         }
         #region Program Contorl
         private async Task DetectGame()
@@ -109,28 +117,36 @@ namespace GTA5_Casino_Helper
             }
             catch (Exception ex)
             {
-
+                logger.Fatal($"DetectGame Failed:{ex.Message}");
             }
         }
         private async Task SwitchHBMode()
         {
             try
             {
+                if (_process == null)
+                {
+                    await SetStatus("You must detect game first (Ctrl+ NumPad1).");
+                    return;
+                }
+
                 if (isRR_Running)
                 {
-                    MessageBox.Show("You are running russian roulette now.");
+                    await SetStatus("You are running russian roulette now.");
                     return;
                 }
 
 
                 if (isHB_Running)
                 {
+                    await SetUITopMust(false);
                     await SetStatus("關閉自動下注");
                     isHB_Running = false;
                     await SetStatus("結束自動下注");
                 }
                 else
                 {
+                    await SetUITopMust(true);
                     await SetStatus("啟用自動下注");
                     isHB_Running = true;
                 }
@@ -138,13 +154,16 @@ namespace GTA5_Casino_Helper
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"{ex.Message}");
+                logger.Fatal($"SwitchHBMode Failed:{ex.Message}");
             }
         }
         private async Task SwitchRRMode()
         {
             try
             {
+                if (_process == null)
+                    return;
+
                 if (isHB_Running)
                 {
                     MessageBox.Show("You are running horse betting now.");
@@ -154,6 +173,7 @@ namespace GTA5_Casino_Helper
 
                 if (isRR_Running)
                 {
+                    await SetUITopMust(false);
                     await SetStatus("已關閉俄羅斯輪盤修改,等待程式停止..");
                     isRR_Running = false;
                     await Task.Delay(2000);
@@ -161,14 +181,19 @@ namespace GTA5_Casino_Helper
                 }
                 else
                 {
+                    await SetUITopMust(true);
                     await SetStatus("已啟用俄羅斯輪盤修改,等待程式執行..");
                     isRR_Running = true;
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"{ex.Message}");
+                logger.Fatal($"SwitchRRMode Failed:{ex.Message}");
             }
+        }
+        private void CloseApp()
+        {
+            this.Close();
         }
         #endregion
         #region HotEvents
@@ -185,6 +210,11 @@ namespace GTA5_Casino_Helper
         private async void SwitchRRModeHotkeyEvent(object sender, HotkeyEventArgs e)
         {
             await SwitchRRMode();
+        }
+
+        private void CloseAppHotkeyEvent(object sender, HotkeyEventArgs e)
+        {
+            CloseApp();
         }
         #endregion
         #region UI Event
@@ -214,6 +244,38 @@ namespace GTA5_Casino_Helper
         }
         #endregion
         #region UI Update Methods
+        private async Task SetUITopMust(bool enable)
+        {
+            try
+            {
+
+                if (enable)
+                {
+                    await this.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        this.Topmost = true;
+                        this.Opacity = 0.4;
+                        this.Top = 0;
+                        this.Left = 0;
+                    }));
+                }
+                else
+                {
+                    await this.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        this.Topmost = false;
+                        this.Opacity = 1;
+                        this.Top = 0;
+                        this.Left = 0;
+                    }));
+                }
+            }
+            catch(Exception ex)
+            {
+                logger.Fatal($"SetUITopMust Failed:{ex.Message}");
+            }
+        }
+
         private async Task SetUIAsync(bool enable)
         {
             try
@@ -241,7 +303,7 @@ namespace GTA5_Casino_Helper
             }
             catch (Exception ex)
             {
-
+                logger.Fatal($"SetUIAsync Failed:{ex.Message}");
             }
         }
 
@@ -256,7 +318,7 @@ namespace GTA5_Casino_Helper
             }
             catch (Exception ex)
             {
-
+                logger.Fatal($"SetStatus Failed:{ex.Message}");
             }
         }
         #endregion
@@ -274,11 +336,12 @@ namespace GTA5_Casino_Helper
                     }
 
                     if (await SetBettingAmountAsync() && await SetBettingNumberAsync())
-                        await SetStatus($"已鎖定俄羅斯輪盤出 {RR_Number} , 下 {RR_Number} 金額為 {RR_Amount}。");
+                        await SetStatus($"已鎖定俄羅斯輪盤出 {RR_Number} , 金額為 {RR_Amount}。");
                 }
                 catch (Exception ex)
                 {
                     await SetStatus($"RRWorker() => {ex.Message}");
+                    logger.Fatal($"RRWorker Error:{ex.Message}");
                     isRR_Running = false;
                 }
                 finally
@@ -306,6 +369,7 @@ namespace GTA5_Casino_Helper
             catch (Exception ex)
             {
                 await SetStatus($"SetBettingAmount():{ex.Message}");
+                logger.Fatal($"SetBettingAmount Failed:{ex.Message}");
                 return false;
             }
             return true;
@@ -325,6 +389,7 @@ namespace GTA5_Casino_Helper
             catch (Exception ex)
             {
                 await SetStatus($"SetBettingNumber():{ex.Message}");
+                logger.Fatal($"SetBettingNumber Failed:{ex.Message}");
                 return false;
             }
             return true;
