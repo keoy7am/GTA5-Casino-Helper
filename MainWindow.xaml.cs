@@ -20,6 +20,8 @@ using SysProcess = System.Diagnostics.Process;
 using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.Threading;
+using NHotkey.Wpf;
+using NHotkey;
 
 namespace GTA5_Casino_Helper
 {
@@ -31,7 +33,6 @@ namespace GTA5_Casino_Helper
         int RR_Number = 0;
         int RR_Amount = 1000;
         // TODO Log
-        // TODO Hotkey
         SysProcess _process { get; set; }
         ProcessSharp _sharp { get; set; }
         bool isHB_Running = false;
@@ -66,18 +67,20 @@ namespace GTA5_Casino_Helper
             500,
             5000,
             50000,
-            //60000
+            //60000 //  After testing, the value will have a high risk of freezing in the casino.
         };
-        object RR_NumberLocaker = new object();
         public MainWindow()
         {
             InitializeComponent();
+        }
 
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
             RRWorkerThread = new Thread(RRWorker);
             RRWorkerThread.IsBackground = true;
             RRWorkerThread.Start();
 
-            for(int i = 0; i <= 36; i++)
+            for (int i = 0; i <= 36; i++)
             {
                 RR_NumberList.Add(i.ToString());
             }
@@ -88,9 +91,12 @@ namespace GTA5_Casino_Helper
 
             cb_RR_Amount.ItemsSource = RR_AmountList;
             cb_RR_Amount.SelectedIndex = 0;
+            HotkeyManager.Current.AddOrReplace("F1", Key.F1, ModifierKeys.Control, DetectGameHotkeyEvent);
+            HotkeyManager.Current.AddOrReplace("F2", Key.F2, ModifierKeys.Control, SwitchHBModeHotkeyEvent);
+            HotkeyManager.Current.AddOrReplace("F3", Key.F3, ModifierKeys.Control, SwitchRRModeHotkeyEvent);
         }
-        #region Event
-        private async void StatusBar_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        #region Program Contorl
+        private async Task DetectGame()
         {
             try
             {
@@ -106,11 +112,10 @@ namespace GTA5_Casino_Helper
 
             }
         }
-        private async void btn_EarnMoneyByHB_Click(object sender, RoutedEventArgs e)
+        private async Task SwitchHBMode()
         {
             try
             {
-                #region oooo
                 if (isRR_Running)
                 {
                     MessageBox.Show("You are running russian roulette now.");
@@ -129,20 +134,17 @@ namespace GTA5_Casino_Helper
                     await SetStatus("啟用自動下注");
                     isHB_Running = true;
                 }
-                #endregion
-                await HR_ClickBet();
+                await HR_AutoBetScript();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"{ex.Message}");
             }
-
         }
-        private async void btn_EarnMoneyByRR_Click(object sender, RoutedEventArgs e)
+        private async Task SwitchRRMode()
         {
             try
             {
-                #region oooo
                 if (isHB_Running)
                 {
                     MessageBox.Show("You are running horse betting now.");
@@ -162,7 +164,6 @@ namespace GTA5_Casino_Helper
                     await SetStatus("已啟用俄羅斯輪盤修改,等待程式執行..");
                     isRR_Running = true;
                 }
-                #endregion
             }
             catch (Exception ex)
             {
@@ -170,7 +171,96 @@ namespace GTA5_Casino_Helper
             }
         }
         #endregion
-        #region RR
+        #region HotEvents
+        private async void DetectGameHotkeyEvent(object sender, HotkeyEventArgs e)
+        {
+            await DetectGame();
+        }
+
+        private async void SwitchHBModeHotkeyEvent(object sender, HotkeyEventArgs e)
+        {
+            await SwitchHBMode();
+        }
+
+        private async void SwitchRRModeHotkeyEvent(object sender, HotkeyEventArgs e)
+        {
+            await SwitchRRMode();
+        }
+        #endregion
+        #region UI Event
+        private async void StatusBar_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            await DetectGame();
+        }
+
+        private async void btn_EarnMoneyByHB_Click(object sender, RoutedEventArgs e)
+        {
+            await SwitchHBMode();
+        }
+
+        private async void btn_EarnMoneyByRR_Click(object sender, RoutedEventArgs e)
+        {
+            await SwitchRRMode();
+        }
+
+        private void cb_RR_Number_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RR_Number = cb_RR_Number.SelectedIndex;
+        }
+
+        private void cb_RR_Amount_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RR_Amount = RR_AmountList[cb_RR_Amount.SelectedIndex];
+        }
+        #endregion
+        #region UI Update Methods
+        private async Task SetUIAsync(bool enable)
+        {
+            try
+            {
+                if (enable)
+                {
+                    await this.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        StatusBar.Text = "Status：Game Detected!";
+                        StatusBar.IsEnabled = false;
+                        btn_EarnMoneyByHB.IsEnabled = true;
+                        btn_EarnMoneyByRR.IsEnabled = true;
+                    }));
+                }
+                else
+                {
+                    await this.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        StatusBar.Text = "Status：Game Detected!";
+                        StatusBar.IsEnabled = true;
+                        btn_EarnMoneyByHB.IsEnabled = false;
+                        btn_EarnMoneyByRR.IsEnabled = false;
+                    }));
+                }
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
+
+        private async Task SetStatus(string message)
+        {
+            try
+            {
+                await this.StatusBar.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    StatusBar.Text = $"Status：{message}";
+                }));
+            }
+            catch (Exception ex)
+            {
+
+            }
+        }
+        #endregion
+        #region RR Mode Memory Hacking
         private async void RRWorker()
         {
             while (true)
@@ -225,7 +315,7 @@ namespace GTA5_Casino_Helper
             try
             {
                 IntPtr bettingNumberPtr = MemoryHelper.GetPtr(_process, RR_BettingNumber_Offsets, true);
-                IntPtr bettingNumberPtr2 = IntPtr.Add(bettingNumberPtr,8);
+                IntPtr bettingNumberPtr2 = IntPtr.Add(bettingNumberPtr, 8);
                 byte[] bettingNumber = BitConverter.GetBytes(RR_Number);
 
                 _sharp.Memory = new ExternalProcessMemory(_sharp.Handle);
@@ -240,51 +330,8 @@ namespace GTA5_Casino_Helper
             return true;
         }
         #endregion
-        private async Task SetUIAsync(bool enable)
-        {
-            try
-            {
-                if (enable)
-                {
-                    await this.Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        StatusBar.Text = "Status：Game Detected!";
-                        StatusBar.IsEnabled = false;
-                        btn_EarnMoneyByHB.IsEnabled = true;
-                        btn_EarnMoneyByRR.IsEnabled = true;
-                    }));
-                }
-                else
-                {
-                    await this.Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        StatusBar.Text = "Status：Game Detected!";
-                        StatusBar.IsEnabled = true;
-                        btn_EarnMoneyByHB.IsEnabled = false;
-                        btn_EarnMoneyByRR.IsEnabled = false;
-                    }));
-                }
-            }
-            catch (Exception ex)
-            {
-
-            }
-        }
-        private async Task SetStatus(string message)
-        {
-            try
-            {
-                await this.StatusBar.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    StatusBar.Text = $"Status：{message}";
-                }));
-            }
-            catch (Exception ex)
-            {
-
-            }
-        }
-        private async Task HR_ClickBet()
+        #region HR Mode Auto Script
+        private async Task HR_AutoBetScript()
         {
             var window = _sharp.WindowFactory.MainWindow;
             while (isHB_Running)
@@ -337,15 +384,6 @@ namespace GTA5_Casino_Helper
                 }
             }
         }
-
-        private void cb_RR_Number_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            RR_Number = cb_RR_Number.SelectedIndex;
-        }
-
-        private void cb_RR_Amount_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            RR_Amount = RR_AmountList[cb_RR_Amount.SelectedIndex];
-        }
+        #endregion
     }
 }

@@ -3,8 +3,9 @@
                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                       xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
                       Title="GTA 5 Casino Helper"
-                      Height="310.562"
-                      Width="525" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen">
+                      Height="320"
+                      Width="525" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen"
+                      Loaded="MainWindow_Loaded">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="8*"/>
