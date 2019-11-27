@@ -124,6 +124,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="AppData.cs" />
     <Compile Include="MemoryHelper.cs" />
     <Compile Include="SimulateHelper.cs" />
     <Page Include="MainWindow.xaml">
