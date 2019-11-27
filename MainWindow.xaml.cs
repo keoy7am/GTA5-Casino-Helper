@@ -24,6 +24,7 @@ using NHotkey.Wpf;
 using NHotkey;
 using NLog;
 using System.IO;
+using System.Reflection;
 
 namespace GTA5_Casino_Helper
 {
@@ -33,46 +34,10 @@ namespace GTA5_Casino_Helper
     public partial class MainWindow : MetroWindow
     {
         // TODO RRMode: Supports detection of Casinocoin changes. (To make sure a game has been lost)
-        // TODO MainWindow:
         private static Logger logger = NLog.LogManager.GetCurrentClassLogger();
-        int RR_Number = 0;
-        int RR_Amount = 1000;
         SysProcess _process { get; set; }
         ProcessSharp _sharp { get; set; }
-        bool isHB_Running = false;
-        bool isRR_Running = false;
-        static readonly IntPtr[] RR_BettingAmout_Offsets =
-            {
-            (IntPtr)0x028AA178,
-            (IntPtr)0x28,
-            (IntPtr)0x48,
-            (IntPtr)0x120,
-            (IntPtr)0xA8,
-            (IntPtr)0x58,
-            (IntPtr)0x108,
-            (IntPtr)0x34
-        };
-        static readonly IntPtr[] RR_BettingNumber_Offsets =
-            {
-            (IntPtr)0x02889FF0,
-            (IntPtr)0x68,
-            (IntPtr)0x3D8,
-            (IntPtr)0x10,
-            (IntPtr)0x108,
-            (IntPtr)0x4D0
-        };
         Thread RRWorkerThread;
-        List<string> RR_NumberList = new List<string>();
-        List<int> RR_AmountList = new List<int>()
-        {
-            10,
-            50,
-            100,
-            500,
-            5000,
-            50000,
-            //60000 //  After testing, the value will have a high risk of freezing in the casino.
-        };
         public MainWindow()
         {
             InitializeComponent();
@@ -84,23 +49,19 @@ namespace GTA5_Casino_Helper
             RRWorkerThread.IsBackground = true;
             RRWorkerThread.Start();
 
-            for (int i = 0; i <= 36; i++)
-            {
-                RR_NumberList.Add(i.ToString());
-            }
-            RR_NumberList.Add("00");
-
-            cb_RR_Number.ItemsSource = RR_NumberList;
+            cb_RR_Number.ItemsSource = AppData.shared.RR_NumberList;
             cb_RR_Number.SelectedIndex = 0;
 
-            cb_RR_Amount.ItemsSource = RR_AmountList;
-            cb_RR_Amount.SelectedIndex = 0;
+            cb_RR_Amount.ItemsSource = AppData.shared.RR_AmountList;
+            cb_RR_Amount.SelectedItem = AppData.shared.RR_AmountList.LastOrDefault();
 
             HotkeyManager.Current.AddOrReplace(Key.NumPad1.ToString(), Key.NumPad1, ModifierKeys.Control, DetectGameHotkeyEvent);
             HotkeyManager.Current.AddOrReplace(Key.NumPad2.ToString(), Key.NumPad2, ModifierKeys.Control, SwitchHBModeHotkeyEvent);
             HotkeyManager.Current.AddOrReplace(Key.NumPad3.ToString(), Key.NumPad3, ModifierKeys.Control, SwitchRRModeHotkeyEvent);
             HotkeyManager.Current.AddOrReplace(Key.NumPad9.ToString(), Key.NumPad9, ModifierKeys.Control, CloseAppHotkeyEvent);
 
+            var version = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion.ToString();
+            this.Title = $"GTA 5 Casino Helper ( Quit: Ctrl + NumPad9 ) | ver.{version}";
             logger.Info("Program Start!");
         }
         #region Program Contorl
@@ -113,6 +74,7 @@ namespace GTA5_Casino_Helper
                 {
                     _sharp = new ProcessSharp(_process, Process.NET.Memory.MemoryType.Remote);
                     await SetUIAsync(true);
+                    logger.Info("已偵測到 GTA5.exe 。");
                 }
             }
             catch (Exception ex)
@@ -130,25 +92,26 @@ namespace GTA5_Casino_Helper
                     return;
                 }
 
-                if (isRR_Running)
+                if (AppData.shared.isRR_Running)
                 {
                     await SetStatus("You are running russian roulette now.");
                     return;
                 }
 
 
-                if (isHB_Running)
+                if (AppData.shared.isHB_Running)
                 {
+                    logger.Info("關閉自動下注。");
                     await SetUITopMust(false);
-                    await SetStatus("關閉自動下注");
-                    isHB_Running = false;
                     await SetStatus("結束自動下注");
+                    AppData.shared.isHB_Running = false;
                 }
                 else
                 {
+                    logger.Info("啟用自動下注。");
                     await SetUITopMust(true);
                     await SetStatus("啟用自動下注");
-                    isHB_Running = true;
+                    AppData.shared.isHB_Running = true;
                 }
                 await HR_AutoBetScript();
             }
@@ -164,26 +127,30 @@ namespace GTA5_Casino_Helper
                 if (_process == null)
                     return;
 
-                if (isHB_Running)
+                if (AppData.shared.isHB_Running)
                 {
                     MessageBox.Show("You are running horse betting now.");
                     return;
                 }
 
 
-                if (isRR_Running)
+                if (AppData.shared.isRR_Running)
                 {
+                    logger.Info("結束俄羅斯輪盤修改。");
                     await SetUITopMust(false);
                     await SetStatus("已關閉俄羅斯輪盤修改,等待程式停止..");
-                    isRR_Running = false;
                     await Task.Delay(2000);
                     await SetStatus("結束俄羅斯輪盤修改");
+                    AppData.shared.isRR_Running = false;
+                    AppData.shared.RR_Amount_TryTimes = 0;
+                    AppData.shared.RR_Number_TryTimes = 0;
                 }
                 else
                 {
+                    logger.Info("啟用俄羅斯輪盤修改。");
                     await SetUITopMust(true);
                     await SetStatus("已啟用俄羅斯輪盤修改,等待程式執行..");
-                    isRR_Running = true;
+                    AppData.shared.isRR_Running = true;
                 }
             }
             catch (Exception ex)
@@ -193,6 +160,7 @@ namespace GTA5_Casino_Helper
         }
         private void CloseApp()
         {
+            logger.Info("程式結束。");
             this.Close();
         }
         #endregion
@@ -235,17 +203,18 @@ namespace GTA5_Casino_Helper
 
         private void cb_RR_Number_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            RR_Number = cb_RR_Number.SelectedIndex;
+            AppData.shared.RR_Number = cb_RR_Number.SelectedIndex;
         }
 
         private void cb_RR_Amount_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            RR_Amount = RR_AmountList[cb_RR_Amount.SelectedIndex];
+            AppData.shared.RR_Amount = AppData.shared.RR_AmountList[cb_RR_Amount.SelectedIndex];
         }
         #endregion
         #region UI Update Methods
         private async Task SetUITopMust(bool enable)
         {
+            // TODO Config
             try
             {
 
@@ -254,9 +223,10 @@ namespace GTA5_Casino_Helper
                     await this.Dispatcher.BeginInvoke(new Action(() =>
                     {
                         this.Topmost = true;
-                        this.Opacity = 0.4;
-                        this.Top = 0;
+                        this.Opacity = 0.7;
+                        this.Top = 120;
                         this.Left = 0;
+                        this.Background = new SolidColorBrush(Color.FromArgb(0, 0x1F, 0x55, 0));
                     }));
                 }
                 else
@@ -265,8 +235,9 @@ namespace GTA5_Casino_Helper
                     {
                         this.Topmost = false;
                         this.Opacity = 1;
-                        this.Top = 0;
+                        this.Top = 120;
                         this.Left = 0;
+                        this.Background = SystemColors.ControlBrush;
                     }));
                 }
             }
@@ -329,20 +300,20 @@ namespace GTA5_Casino_Helper
             {
                 try
                 {
-                    if (!isRR_Running)
+                    if (!AppData.shared.isRR_Running)
                     {
                         Thread.Sleep(TimeSpan.FromSeconds(5));
                         continue;
                     }
 
                     if (await SetBettingAmountAsync() && await SetBettingNumberAsync())
-                        await SetStatus($"已鎖定俄羅斯輪盤出 {RR_Number} , 金額為 {RR_Amount}。");
+                        await SetStatus($"已鎖定俄羅斯輪盤出 {AppData.shared.RR_Number} , 金額為 {AppData.shared.RR_Amount}。");
                 }
                 catch (Exception ex)
                 {
                     await SetStatus($"RRWorker() => {ex.Message}");
                     logger.Fatal($"RRWorker Error:{ex.Message}");
-                    isRR_Running = false;
+                    AppData.shared.isRR_Running = false;
                 }
                 finally
                 {
@@ -354,42 +325,67 @@ namespace GTA5_Casino_Helper
         {
             try
             {
-                IntPtr bettingAmountPtr = MemoryHelper.GetPtr(_process, RR_BettingAmout_Offsets, true);
+                if (AppData.shared.RR_Amount_TryTimes > 10)
+                {
+                    // TODO Alert: Please try to connect to new session. The hack is not working here in this session. ( but it should be work in all of the session)
+                    await SwitchRRMode();
+                    return false;
+                }
+                IntPtr bettingAmountPtr = MemoryHelper.GetPtr(_process, AppData.shared.RR_BettingAmout_Offsets, true);
                 IntPtr bettingAmountPtr2 = IntPtr.Add(bettingAmountPtr, 16);
                 IntPtr bettingAmountPtr3 = IntPtr.Add(bettingAmountPtr2, 16);
                 IntPtr bettingAmountPtr4 = IntPtr.Add(bettingAmountPtr3, 16);
-                byte[] bettingAmount = BitConverter.GetBytes(RR_Amount);
+                byte[] bettingAmount = BitConverter.GetBytes(AppData.shared.RR_Amount);
 
                 _sharp.Memory = new ExternalProcessMemory(_sharp.Handle);
                 _sharp.Memory.Write((IntPtr)bettingAmountPtr, bettingAmount);
                 _sharp.Memory.Write((IntPtr)bettingAmountPtr2, bettingAmount);
                 _sharp.Memory.Write((IntPtr)bettingAmountPtr3, bettingAmount);
                 _sharp.Memory.Write((IntPtr)bettingAmountPtr4, bettingAmount);
+
+                AppData.shared.RR_Amount_TryTimes = 0;
             }
             catch (Exception ex)
             {
                 await SetStatus($"SetBettingAmount():{ex.Message}");
                 logger.Fatal($"SetBettingAmount Failed:{ex.Message}");
+                AppData.shared.RR_Amount_TryTimes++;
                 return false;
             }
             return true;
         }
+
         private async Task<bool> SetBettingNumberAsync()
         {
             try
             {
-                IntPtr bettingNumberPtr = MemoryHelper.GetPtr(_process, RR_BettingNumber_Offsets, true);
-                IntPtr bettingNumberPtr2 = IntPtr.Add(bettingNumberPtr, 8);
-                byte[] bettingNumber = BitConverter.GetBytes(RR_Number);
-
+                if (AppData.shared.RR_Number_TryTimes > 10)
+                {
+                    // TODO Alert: Please try to connect to new session. The hack is not working here in this session.
+                    await SwitchRRMode();
+                    AppData.shared.RR_Number_TryTimes = 0;
+                    return false;
+                }
+                var pointerList = AppData.shared.GetRR_BettingNumber_OffsetList();
+                byte[] bettingNumber = BitConverter.GetBytes(AppData.shared.RR_Number);
                 _sharp.Memory = new ExternalProcessMemory(_sharp.Handle);
-                _sharp.Memory.Write((IntPtr)bettingNumberPtr, bettingNumber);
-                _sharp.Memory.Write((IntPtr)bettingNumberPtr2, bettingNumber);
+
+                foreach (var pointer in pointerList)
+                {
+                    IntPtr numberBase = MemoryHelper.GetPtr(_process, pointer, true);
+                    IntPtr table1 = IntPtr.Add(numberBase, 8);
+                    IntPtr table2 = IntPtr.Add(table1, 8);
+
+                    _sharp.Memory.Write(table1, bettingNumber);
+                    _sharp.Memory.Write(table2, bettingNumber);
+                }
+
+                AppData.shared.RR_Number_TryTimes = 0;
             }
             catch (Exception ex)
             {
                 await SetStatus($"SetBettingNumber():{ex.Message}");
-                logger.Fatal($"SetBettingNumber Failed:{ex.Message}");
+                AppData.shared.RR_Number_TryTimes++;
                 return false;
             }
             return true;
@@ -399,7 +395,7 @@ namespace GTA5_Casino_Helper
         private async Task HR_AutoBetScript()
         {
             var window = _sharp.WindowFactory.MainWindow;
-            while (isHB_Running)
+            while (AppData.shared.isHB_Running)
             {
                 // TODO 寫成Action
                 await SetStatus("執行自動下注");
@@ -441,7 +437,7 @@ namespace GTA5_Casino_Helper
                 {
                     await Task.Delay(1);
                     await SetStatus($"將在 {i / 100} 秒後重新執行下注");
-                    if (!isHB_Running)
+                    if (!AppData.shared.isHB_Running)
                     {
                         await SetStatus($"已結束自動下注。");
                         return;

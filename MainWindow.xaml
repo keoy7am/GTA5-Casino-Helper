@@ -3,7 +3,7 @@
                       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                       xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
                       Title="GTA 5 Casino Helper"
-                      Height="320"
+                      Height="180"
                       Width="600" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen"
                       Loaded="MainWindow_Loaded"
                       AllowsTransparency="True"
@@ -11,7 +11,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="8*"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="2*"/>
         </Grid.RowDefinitions>
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
@@ -21,7 +21,7 @@
             <Button x:Name="btn_EarnMoneyByHB" FontSize="14" Grid.Column="0" Margin="10,5" Content="Earn money By Horse Betting&#x0a;(Ctrl+ NumPad2)" IsEnabled="False" Click="btn_EarnMoneyByHB_Click"/>
             <Grid  Grid.Column="1" Margin="10,5" >
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="8*"/>
+                    <RowDefinition Height="2.4*"/>
                     <RowDefinition Height="1*"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
